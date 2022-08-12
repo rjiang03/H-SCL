@@ -9,7 +9,7 @@ python main.py
 
 The performance will be saved as npy file.
 
-For reproduce the loss shown in Figure 7, please use comman 
+For reproduce the loss shown in Figure 7, please use command
 
 python loss_cal.py
 
