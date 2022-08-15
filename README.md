@@ -11,6 +11,6 @@ The performance will be saved as npy file.
 
 For reproduce the loss shown in Figure 7, please use command
 
-python loss_cal.py
+python main_loss.py
 
-Four different loss will be saved as npy file.
+Value of four different loss will be saved as npy file.
