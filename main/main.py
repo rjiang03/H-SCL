@@ -165,7 +165,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', default=200, type=int, help='Number of sweeps over the dataset to train')
     parser.add_argument('--estimator', default='hard', type=str, help='Choose loss function')
     parser.add_argument('--dataset_name', default='cifar100', type=str, help='Choose loss function')
-    parser.add_argument('--beta', default=1, type=float, help='reg')
+    parser.add_argument('--beta', default=5, type=float, help='reg')
     parser.add_argument('--gradient_imp', default=True, type=bool, help='gradient_imp')
     parser.add_argument('--N', default=1, type=float, help='beta')
     parser.add_argument('--M', default=2, type=float, help='beta')
