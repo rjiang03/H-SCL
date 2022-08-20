@@ -9,16 +9,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import ot
 
 import utils_2
 from model import Model
 import warnings
 warnings.filterwarnings("ignore")
 
-SEED = 1
-torch.manual_seed(SEED)
-torch.cuda.manual_seed(SEED)
+
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print('Home device: {}'.format(device))
@@ -48,7 +45,7 @@ def nce_supervised_easy(out_1, out_2, label):
     return Nce
 
 
-def nce_supervised_hard(out_1, out_2, label, beta, gradient_imp = True):
+def nce_supervised_hard(out_1, out_2, label, beta, gradient_imp):
     #supervised contrastive loss with hard negative sampling
     out = torch.cat([out_1, out_2], dim=0)
     label = torch.cat([label, label], dim=0)
@@ -64,12 +61,14 @@ def nce_supervised_hard(out_1, out_2, label, beta, gradient_imp = True):
     pos = pos_index * cost
     neg = neg_index * cost
 
-    if gradient_imp == False or beta < 1:
+    if gradient_imp == False:
         imp = neg_index*(beta* neg.log()).exp()
         imp = imp.detach()
     else:
-        imp = neg_index*torch.pow(neg, beta)
-        
+        imp = torch.zeros((batch, batch)).cuda()
+        imp_dis = torch.where(neg_index!=0)
+        imp[imp_dis[0], imp_dis[1]] = torch.pow(neg[imp_dis[0], imp_dis[1]], beta)
+    
     neg_exp_sum = (imp*neg).sum(dim = -1) / imp.sum(dim = -1)
     Nce = pos_index * (pos/(pos+(batch - 2)*neg_exp_sum.reshape(-1,1)))
     final_index = torch.where(pos_index!=0)
@@ -102,7 +101,7 @@ def train(net, data_loader, train_optimizer, temperature, estimator, beta, gradi
 
 
 # test for one epoch, use weighted knn to find the most similar images' label to assign the test image
-def test(net, memory_data_loader, test_data_loader, beta, dataset_name, estimator, tau):
+def test(net, memory_data_loader, test_data_loader, beta, dataset_name, estimator):
     net.eval()
     total_top1, total_top5, total_num, feature_bank = 0.0, 0.0, 0, []
     with torch.no_grad():
@@ -147,7 +146,6 @@ def test(net, memory_data_loader, test_data_loader, beta, dataset_name, estimato
             top[epoch][0] = float(total_top1 / total_num * 100)
             top[epoch][1] = float(total_top5 / total_num * 100)
             print(epoch, epochs, 'total_top1', total_top1, total_num, total_top1 / total_num * 100, 'total_top5', total_top5, total_top5 / total_num * 100)
-            #np.save(dataset_name+estimator+"reg"+str(reg)+"_unbalanced_"+str(reg_unbalance)+"tau"+str(tau)+".npy", top)
             test_bar.set_description('KNN Test Epoch: [{}/{}] Acc@1:{:.2f}% Acc@5:{:.2f}%'
                                      .format(epoch, epochs, total_top1 / total_num * 100, total_top5 / total_num * 100))
             
@@ -159,24 +157,27 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train SimCLR')
     parser.add_argument('--feature_dim', default=128, type=int, help='Feature dim for latent vector')
     parser.add_argument('--temperature', default=0.5, type=float, help='Temperature used in softmax')
-    parser.add_argument('--tau_plus', default=0, type=float, help='Positive class priorx')
     parser.add_argument('--k', default=200, type=int, help='Top k most similar images used to predict the label')
     parser.add_argument('--batch_size', default=256, type=int, help='Number of images in each mini-batch')
     parser.add_argument('--epochs', default=200, type=int, help='Number of sweeps over the dataset to train')
     parser.add_argument('--estimator', default='hard', type=str, help='Choose loss function')
-    parser.add_argument('--dataset_name', default='cifar100', type=str, help='Choose loss function')
-    parser.add_argument('--beta', default=5, type=float, help='reg')
+    parser.add_argument('--dataset_name', default='stl10', type=str, help='Choose dataset')
+    parser.add_argument('--beta', default=0.5, type=float, help='beta')
     parser.add_argument('--gradient_imp', default=True, type=bool, help='gradient_imp')
-    parser.add_argument('--N', default=1, type=float, help='beta')
-    parser.add_argument('--M', default=2, type=float, help='beta')
+    parser.add_argument('--N', default=1, type=float, help='M_view')
+    parser.add_argument('--M', default=2, type=float, help='N_view')
 
     # args parse
     args = parser.parse_args()
-    feature_dim, temperature, tau_plus, k = args.feature_dim, args.temperature, args.tau_plus, args.k
+    feature_dim, temperature, k = args.feature_dim, args.temperature, args.k
     batch_size, epochs, estimator,beta = args.batch_size, args.epochs, args.estimator, args.beta
     M_view, N_view = args.M, args.N
     dataset_name = args.dataset_name
     gradient_imp = args.gradient_imp
+    
+    SEED = 0
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
 
     print(dataset_name, "estimator", estimator, beta)
 
@@ -203,10 +204,10 @@ if __name__ == '__main__':
         os.mkdir('../results/{}'.format(dataset_name))
     for epoch in range(1, epochs + 1):
         train_loss = train(model, train_loader, optimizer, temperature, estimator, beta, gradient_imp)
-        test_acc_1, test_acc_5 = test(model, memory_loader, test_loader, beta, dataset_name, estimator, tau_plus)
+        test_acc_1, test_acc_5 = test(model, memory_loader, test_loader, beta, dataset_name, estimator)
         print(float(train_loss), test_acc_1, test_acc_5)
         acc_1[epoch-1][0] = float(train_loss)
         acc_1[epoch-1][1] = test_acc_1
-        np.save(dataset_name+"_final_acc_1_200"+estimator+str(beta)+'_Seed_'+str(SEED)+str(gradient_imp), acc_1)
+        np.save(dataset_name+"_final_acc_1_"+estimator+str(beta)+'_Seed_'+str(SEED)+str(gradient_imp), acc_1)
         torch.save(model.state_dict(), '../results/{}/{}_{}_{}_{}_{}_paper_HSCL_final.pth'.format(dataset_name,dataset_name,estimator,batch_size,beta, gradient_imp))
 

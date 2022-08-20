@@ -9,7 +9,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import ot
 
 import utils_2
 from model import Model
@@ -153,6 +152,8 @@ def train(net, data_loader, train_optimizer, temperature, estimator, beta):
 
 
         train_optimizer.zero_grad()
+        #Choose one unsupervised loss to for optimizing
+        #For supervised case please refer to main.py
         loss_hucl.backward()
         train_optimizer.step()
 
@@ -166,8 +167,9 @@ def train(net, data_loader, train_optimizer, temperature, estimator, beta):
     
     loss_array[epoch][0] = float(total_loss_hucl / total_num)
     loss_array[epoch][1] = float(total_loss_ucl / total_num)
-    loss_array[epoch][2] = float(total_loss_scl / total_num)
-    loss_array[epoch][3] = float(total_loss_hscl / total_num)
+    loss_array[epoch][2] = float(total_loss_hscl / total_num)
+    loss_array[epoch][3] = float(total_loss_scl / total_num)
+    
     np.save("stl10_loss_beta_"+str(beta)+".npy", loss_array)
     
     return total_loss_hucl / total_num
