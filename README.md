@@ -2,19 +2,15 @@
 
 This is the official code for the paper "Supervised Contrastive Learning with Hard Negative Samples". This repository contains the implementation of HSCL and related experiments described in the paper.
 
-## Implenment on image dataset
-The default set up is cifar100 using H-SCL with beta = 5, The accuracy with KNN classifier will be saved as npy file.
+## Implement on image dataset
+The default setup is cifar100 using H-SCL with beta = 5, The accuracy with KNN classifier will be saved as npy file.
 
 ```
 python main.py
 ```
 The learned model will be saved in folder "result", please use linear.py to show the result with linear classifier.
 
-For reproduce the loss shown in Figure 7, please use command
-```
-python main_loss.py
-```
-Value of four different loss will be saved as npy file.
+
 
 ## Citation
 
